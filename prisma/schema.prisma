@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(cuid())
+  memberNo         String?   @unique // 회원번호 (예: M000001)
+  email            String    @unique
+  name             String?
+  nickname         String?   // 닉네임
+  phone            String?   // 전화번호
+  password         String?
+  image            String?
+  emailVerified    DateTime?
+  role             String    @default("user") // "admin" | "user"
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  // Golfmon fields
+  birthDate        String?   // 생년월일 (YYYYMMDD)
+  gender           String?   // 성별 (M/F)
+  recommenderCode  String?   // 추천인 코드
+  marketingConsent Boolean   @default(false) // 마케팅 수신 동의
+  smsConsent       Boolean   @default(false) // SMS 수신 동의
+  emailConsent     Boolean   @default(false) // 이메일 수신 동의
+  golfmonId        String?   // 골프몬 ID
+  registeredFrom   String?   // 가입 경로
+  lastLoginAt      DateTime? // 마지막 로그인 시간
+  loginCount       Int       @default(0) // 로그인 횟수
+  point            Int       @default(0) // 포인트
+  
+  accounts         Account[]
+  sessions         Session[]
+  favorites        Favorite[]
+  notifications    Notification[]
+  
+  @@index([email])
+  @@index([phone])
+  @@index([memberNo])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model GolfCourse {
+  id            String    @id @default(cuid())
+  name          String
+  region        String    // 지역 (서울, 경기, 강원 등)
+  city          String    // 도시
+  address       String
+  phone         String?
+  website       String?
+  description   String?
+  imageUrl      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  teeTimes      TeeTime[]
+  favorites     Favorite[]
+  
+  @@index([region])
+  @@index([name])
+}
+
+model TeeTime {
+  id            String    @id @default(cuid())
+  golfCourseId  String
+  date          DateTime
+  time          String    // "06:00", "06:07" 형식
+  holes         Int       @default(18) // 18홀, 9홀
+  greenFee      Int       // 그린피
+  cartFee       Int       @default(0) // 카트비
+  caddyFee      Int       @default(0) // 캐디비
+  availableSlots Int      @default(4) // 예약 가능 인원
+  isAvailable   Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  golfCourse    GolfCourse @relation(fields: [golfCourseId], references: [id], onDelete: Cascade)
+  
+  @@index([golfCourseId, date])
+  @@index([date])
+  @@index([isAvailable])
+}
+
+model Favorite {
+  id            String    @id @default(cuid())
+  userId        String
+  golfCourseId  String
+  createdAt     DateTime  @default(now())
+  
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  golfCourse    GolfCourse @relation(fields: [golfCourseId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, golfCourseId])
+  @@index([userId])
+  @@index([golfCourseId])
+}
+
+model Notification {
+  id            String    @id @default(cuid())
+  userId        String
+  type          String    // PRICE_DROP, NEW_AVAILABILITY 등
+  title         String
+  message       String
+  isRead        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model CrawlLog {
+  id            String    @id @default(cuid())
+  golfCourseName String
+  status        String    // SUCCESS, FAILED, PARTIAL
+  message       String?
+  teeTimesFound Int       @default(0)
+  createdAt     DateTime  @default(now())
+  
+  @@index([createdAt])
+  @@index([status])
+}
